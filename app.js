@@ -45,7 +45,8 @@ mongoose.connect(process.env.CONNECT_MONGODB,{useNewUrlParser:true});
 const userSchema=new mongoose.Schema({
     email: String,
     password: String,
-    googleId: String
+    googleId: String,
+    secret:String
 });
 
 userSchema.plugin(passportLocalMongoose);
@@ -90,14 +91,44 @@ app.get("/login",(req,res)=>{
 app.get("/register",(req,res)=>{
     res.render("register");
 });
-app.get("/secrets",function(req,res){
+app.get("/secrets", async function (req, res) {
+    try {
+      const foundUser = await User.find({ secret: { $ne: null } }).exec();
+      if (foundUser) {
+        res.render("secrets", { userwithSecrets: foundUser });
+      }
+    } catch (err) {
+      console.log(err);
+      // Handle the error appropriately, e.g., send an error response or redirect.
+      res.status(500).send("Internal Server Error");
+    }
+});
+  
+
+app.get("/submit",function(req,res){
     if(req.isAuthenticated()){
-        res.render("secrets");
+        res.render("submit");
     }
     else{
         res.redirect("/login");
     }
 })
+
+app.post("/submit",async function(req,res){
+    const submittedSecret=req.body.secret;
+    //console.log(req.user.id);
+    try {
+        const foundUser = await User.findById(req.user.id).exec();
+        if (foundUser) {
+          foundUser.secret = submittedSecret;
+          await foundUser.save();
+          res.redirect("/secrets");
+        }
+      } catch (err) {
+        console.log(err);
+      }
+})
+
 app.get("/logout",(req,res)=>{
     req.logout(function(err) {
         if (err) { return next(err); }
